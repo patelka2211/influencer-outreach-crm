@@ -1084,3 +1084,9 @@ tbody td {
     flex-direction: column;
   }
 }
+
+.pipeline-card-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}

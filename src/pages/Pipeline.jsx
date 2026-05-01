@@ -6,6 +6,7 @@ import {
     createOutreachRecord,
     getOutreachRecords,
     updateOutreachStatus,
+    deleteOutreachRecord,
 } from '../services/outreachService'
 
 const STATUS_ORDER = ['CONTACTED', 'REPLIED', 'SHIPPED', 'POSTED']
@@ -144,6 +145,23 @@ function Pipeline() {
         return outreachRecords.filter((record) => record.status === status)
     }
 
+    async function handleDeleteOutreach(recordId) {
+        const confirmed = window.confirm(
+            'Are you sure you want to remove this outreach record?'
+        )
+
+        if (!confirmed) return
+
+        try {
+            setError('')
+            await deleteOutreachRecord(recordId)
+            await loadPipelineData()
+        } catch (err) {
+            console.error(err)
+            setError(err.message || 'Could not delete outreach record.')
+        }
+    }
+
     return (
         <div>
             <div className="page-header">
@@ -267,17 +285,27 @@ function Pipeline() {
                                                     </div>
                                                 )}
 
-                                                {NEXT_STATUS[record.status] ? (
+                                                <div className="pipeline-card-actions">
+                                                    {NEXT_STATUS[record.status] ? (
+                                                        <button
+                                                            type="button"
+                                                            className="primary-button full-width"
+                                                            onClick={() => handleMoveNext(record)}
+                                                        >
+                                                            Move to {NEXT_STATUS[record.status]}
+                                                        </button>
+                                                    ) : (
+                                                        <p className="complete-text">Outreach complete</p>
+                                                    )}
+
                                                     <button
                                                         type="button"
-                                                        className="primary-button full-width"
-                                                        onClick={() => handleMoveNext(record)}
+                                                        className="danger-button full-width"
+                                                        onClick={() => handleDeleteOutreach(record.id)}
                                                     >
-                                                        Move to {NEXT_STATUS[record.status]}
+                                                        Remove Outreach
                                                     </button>
-                                                ) : (
-                                                    <p className="complete-text">Outreach complete</p>
-                                                )}
+                                                </div>
                                             </div>
                                         ))
                                     )}
