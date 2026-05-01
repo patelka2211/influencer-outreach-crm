@@ -19,33 +19,35 @@ const NEXT_STATUS = {
     POSTED: null,
 }
 
-
 function Pipeline() {
     const [outreachRecords, setOutreachRecords] = useState([])
     const [influencers, setInfluencers] = useState([])
     const [campaigns, setCampaigns] = useState([])
     const [selectedPipelineCampaignId, setSelectedPipelineCampaignId] = useState('ALL')
 
+    // Outreach creation modal
+    const [outreachModalOpen, setOutreachModalOpen] = useState(false)
     const [selectedInfluencerId, setSelectedInfluencerId] = useState('')
     const [selectedCampaignId, setSelectedCampaignId] = useState('')
+    const [outreachError, setOutreachError] = useState('')
+    const [saving, setSaving] = useState(false)
 
-    const [noteTextByRecord, setNoteTextByRecord] = useState({})
+    // Inline note expansion — only one card open at a time
+    const [expandedNoteId, setExpandedNoteId] = useState(null)
+    const [noteText, setNoteText] = useState('')
 
     const [loading, setLoading] = useState(true)
-    const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
 
     async function loadPipelineData() {
         try {
             setLoading(true)
             setError('')
-
             const [outreachData, influencerData, campaignData] = await Promise.all([
                 getOutreachRecords(),
                 getInfluencers(),
                 getCampaigns(),
             ])
-
             setOutreachRecords(outreachData || [])
             setInfluencers(influencerData || [])
             setCampaigns(campaignData || [])
@@ -61,41 +63,61 @@ function Pipeline() {
         loadPipelineData()
     }, [])
 
+    // Escape key + body scroll lock for outreach modal
+    useEffect(() => {
+        if (!outreachModalOpen) return
+        function onKey(e) {
+            if (e.key === 'Escape') closeOutreachModal()
+        }
+        document.addEventListener('keydown', onKey)
+        document.body.style.overflow = 'hidden'
+        return () => {
+            document.removeEventListener('keydown', onKey)
+            document.body.style.overflow = ''
+        }
+    }, [outreachModalOpen])
+
+    function openOutreachModal() {
+        setOutreachError('')
+        setSelectedInfluencerId('')
+        setSelectedCampaignId('')
+        setOutreachModalOpen(true)
+    }
+
+    function closeOutreachModal() {
+        setOutreachModalOpen(false)
+        setOutreachError('')
+    }
+
     async function handleCreateOutreach(e) {
         e.preventDefault()
 
         if (!selectedInfluencerId || !selectedCampaignId) {
-            setError('Please select both an influencer and a campaign.')
+            setOutreachError('Please select both an influencer and a campaign.')
             return
         }
 
         const alreadyExists = outreachRecords.some(
-            (record) =>
-                record.influencer_id === selectedInfluencerId &&
-                record.campaign_id === selectedCampaignId
+            (r) => r.influencer_id === selectedInfluencerId && r.campaign_id === selectedCampaignId
         )
 
         if (alreadyExists) {
-            setError('This influencer is already assigned to this campaign.')
+            setOutreachError('This influencer is already assigned to this campaign.')
             return
         }
 
         try {
             setSaving(true)
-            setError('')
-
+            setOutreachError('')
             await createOutreachRecord({
                 influencer_id: selectedInfluencerId,
                 campaign_id: selectedCampaignId,
             })
-
-            setSelectedInfluencerId('')
-            setSelectedCampaignId('')
-
+            closeOutreachModal()
             await loadPipelineData()
         } catch (err) {
             console.error(err)
-            setError(err.message || 'Could not create outreach record.')
+            setOutreachError(err.message || 'Could not create outreach record.')
         } finally {
             setSaving(false)
         }
@@ -103,9 +125,7 @@ function Pipeline() {
 
     async function handleMoveNext(record) {
         const nextStatus = NEXT_STATUS[record.status]
-
         if (!nextStatus) return
-
         try {
             setError('')
             await updateOutreachStatus(record.id, nextStatus)
@@ -116,28 +136,26 @@ function Pipeline() {
         }
     }
 
+    function handleToggleNote(recordId) {
+        if (expandedNoteId === recordId) {
+            setExpandedNoteId(null)
+            setNoteText('')
+        } else {
+            setExpandedNoteId(recordId)
+            setNoteText('')
+        }
+    }
 
     async function handleAddNote(recordId) {
-        const content = noteTextByRecord[recordId]
-
-        if (!content || content.trim() === '') {
+        if (!noteText.trim()) {
             setError('Please enter a note before saving.')
             return
         }
-
         try {
             setError('')
-
-            await addOutreachNote({
-                outreach_id: recordId,
-                content: content.trim(),
-            })
-
-            setNoteTextByRecord((current) => ({
-                ...current,
-                [recordId]: '',
-            }))
-
+            await addOutreachNote({ outreach_id: recordId, content: noteText.trim() })
+            setNoteText('')
+            setExpandedNoteId(null)
             await loadPipelineData()
         } catch (err) {
             console.error(err)
@@ -145,14 +163,9 @@ function Pipeline() {
         }
     }
 
-
     async function handleDeleteOutreach(recordId) {
-        const confirmed = window.confirm(
-            'Are you sure you want to remove this outreach record?'
-        )
-
+        const confirmed = window.confirm('Are you sure you want to remove this outreach record?')
         if (!confirmed) return
-
         try {
             setError('')
             await deleteOutreachRecord(recordId)
@@ -166,75 +179,105 @@ function Pipeline() {
     const filteredOutreachRecords =
         selectedPipelineCampaignId === 'ALL'
             ? outreachRecords
-            : outreachRecords.filter(
-                (record) => record.campaign_id === selectedPipelineCampaignId
-            )
+            : outreachRecords.filter((r) => r.campaign_id === selectedPipelineCampaignId)
 
     const pipelineStats = {
         total: filteredOutreachRecords.length,
-        CONTACTED: filteredOutreachRecords.filter(
-            (record) => record.status === 'CONTACTED'
-        ).length,
-        REPLIED: filteredOutreachRecords.filter(
-            (record) => record.status === 'REPLIED'
-        ).length,
-        SHIPPED: filteredOutreachRecords.filter(
-            (record) => record.status === 'SHIPPED'
-        ).length,
-        POSTED: filteredOutreachRecords.filter(
-            (record) => record.status === 'POSTED'
-        ).length,
+        CONTACTED: filteredOutreachRecords.filter((r) => r.status === 'CONTACTED').length,
+        REPLIED:   filteredOutreachRecords.filter((r) => r.status === 'REPLIED').length,
+        SHIPPED:   filteredOutreachRecords.filter((r) => r.status === 'SHIPPED').length,
+        POSTED:    filteredOutreachRecords.filter((r) => r.status === 'POSTED').length,
     }
 
     function getRecordsByStatus(status) {
-        return filteredOutreachRecords.filter((record) => record.status === status)
-    }
-
-    function getStatusTimestamp(record) {
-        const statusToField = {
-            CONTACTED: record.contacted_at,
-            REPLIED: record.replied_at,
-            SHIPPED: record.shipped_at,
-            POSTED: record.posted_at,
-        }
-
-        const timestamp = statusToField[record.status] || record.updated_at || record.created_at
-
-        if (!timestamp) return 'No timestamp available'
-
-        return new Date(timestamp).toLocaleString()
+        return filteredOutreachRecords.filter((r) => r.status === status)
     }
 
     return (
         <div>
-            <div className="page-header">
+            {/* ── Start Outreach Modal ── */}
+            {outreachModalOpen && (
+                <div
+                    className="modal-overlay"
+                    onClick={(e) => e.target === e.currentTarget && closeOutreachModal()}
+                >
+                    <div className="modal">
+                        <div className="modal-header">
+                            <h2>Start New Outreach</h2>
+                            <button className="modal-close" onClick={closeOutreachModal} aria-label="Close">
+                                &times;
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleCreateOutreach} className="form outreach-modal-form">
+                            <label>Influencer</label>
+                            <select
+                                value={selectedInfluencerId}
+                                onChange={(e) => setSelectedInfluencerId(e.target.value)}
+                                required
+                            >
+                                <option value="">Select influencer</option>
+                                {influencers.map((inf) => (
+                                    <option key={inf.id} value={inf.id}>
+                                        {inf.name} ({inf.platform})
+                                    </option>
+                                ))}
+                            </select>
+
+                            <label>Campaign</label>
+                            <select
+                                value={selectedCampaignId}
+                                onChange={(e) => setSelectedCampaignId(e.target.value)}
+                                required
+                            >
+                                <option value="">Select campaign</option>
+                                {campaigns.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                        {c.name} ({c.status})
+                                    </option>
+                                ))}
+                            </select>
+
+                            {outreachError && <p className="error">{outreachError}</p>}
+
+                            <button type="submit" disabled={saving}>
+                                {saving ? 'Creating...' : 'Start Outreach'}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Page Header ── */}
+            <div className="page-header dashboard-header">
                 <div>
                     <h1>Outreach Pipeline</h1>
                     <p className="muted">
-                        Assign influencers to campaigns and track outreach progress from contacted to posted.
+                        Track influencer outreach from first contact to post.
                     </p>
                 </div>
+                <button className="primary-button" onClick={openOutreachModal}>
+                    Start Outreach
+                </button>
             </div>
 
+            {error && <p className="error" style={{ marginBottom: 16 }}>{error}</p>}
+
+            {/* ── Filter + Stats ── */}
             <section className="card pipeline-filter-card">
                 <div className="section-header">
                     <div>
                         <h2>Pipeline View</h2>
-                        <p className="muted">
-                            Filter the outreach board by campaign and review current progress.
-                        </p>
+                        <p className="muted">Filter by campaign to narrow the board.</p>
                     </div>
-
                     <select
                         value={selectedPipelineCampaignId}
                         onChange={(e) => setSelectedPipelineCampaignId(e.target.value)}
                         className="pipeline-filter-select"
                     >
                         <option value="ALL">All Campaigns</option>
-                        {campaigns.map((campaign) => (
-                            <option key={campaign.id} value={campaign.id}>
-                                {campaign.name}
-                            </option>
+                        {campaigns.map((c) => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
                         ))}
                     </select>
                 </div>
@@ -244,22 +287,18 @@ function Pipeline() {
                         <span>Total</span>
                         <strong>{pipelineStats.total}</strong>
                     </div>
-
                     <div className="pipeline-stat-card">
                         <span>Contacted</span>
                         <strong>{pipelineStats.CONTACTED}</strong>
                     </div>
-
                     <div className="pipeline-stat-card">
                         <span>Replied</span>
                         <strong>{pipelineStats.REPLIED}</strong>
                     </div>
-
                     <div className="pipeline-stat-card">
                         <span>Shipped</span>
                         <strong>{pipelineStats.SHIPPED}</strong>
                     </div>
-
                     <div className="pipeline-stat-card">
                         <span>Posted</span>
                         <strong>{pipelineStats.POSTED}</strong>
@@ -267,50 +306,9 @@ function Pipeline() {
                 </div>
             </section>
 
-            <section className="card pipeline-create-card">
-                <h2>Start New Outreach</h2>
-
-                <form onSubmit={handleCreateOutreach} className="pipeline-form">
-                    <div>
-                        <label>Influencer</label>
-                        <select
-                            value={selectedInfluencerId}
-                            onChange={(e) => setSelectedInfluencerId(e.target.value)}
-                        >
-                            <option value="">Select influencer</option>
-                            {influencers.map((influencer) => (
-                                <option key={influencer.id} value={influencer.id}>
-                                    {influencer.name} ({influencer.platform})
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label>Campaign</label>
-                        <select
-                            value={selectedCampaignId}
-                            onChange={(e) => setSelectedCampaignId(e.target.value)}
-                        >
-                            <option value="">Select campaign</option>
-                            {campaigns.map((campaign) => (
-                                <option key={campaign.id} value={campaign.id}>
-                                    {campaign.name} ({campaign.status})
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <button type="submit" disabled={saving}>
-                        {saving ? 'Creating...' : 'Start Outreach'}
-                    </button>
-                </form>
-
-                {error && <p className="error">{error}</p>}
-            </section>
-
+            {/* ── Kanban Board ── */}
             {loading ? (
-                <p>Loading pipeline...</p>
+                <p className="muted">Loading pipeline...</p>
             ) : (
                 <div className="pipeline-board">
                     {STATUS_ORDER.map((status) => {
@@ -325,128 +323,123 @@ function Pipeline() {
 
                                 <div className="pipeline-cards">
                                     {records.length === 0 ? (
-                                        <p className="muted empty-column">No records yet.</p>
+                                        <p className="empty-column">No records yet.</p>
                                     ) : (
-                                        records.map((record) => (
-                                            <div key={record.id} className="pipeline-card">
-                                                <div className="pipeline-card-top">
-                                                    <div>
-                                                        {record.influencers?.id ? (
-                                                            <Link
-                                                                to={`/influencers/${record.influencers.id}`}
-                                                                className="pipeline-card-title"
-                                                            >
-                                                                {record.influencers.name}
-                                                            </Link>
-                                                        ) : (
-                                                            <h3>Unknown Influencer</h3>
-                                                        )}
+                                        records.map((record) => {
+                                            const platform = record.influencers?.platform
+                                            const noteCount = record.notes?.length || 0
+                                            const isNoteOpen = expandedNoteId === record.id
 
-                                                        <p className="muted">
-                                                            {record.influencers?.platform || 'Platform'} ·{' '}
-                                                            {record.influencers?.handle || 'No handle'}
-                                                        </p>
-                                                    </div>
+                                            return (
+                                                <div key={record.id} className="pipeline-card">
+                                                    {/* Card body */}
+                                                    <div className="pipeline-card-main">
+                                                        <div className="pipeline-card-info">
+                                                            {record.influencers?.id ? (
+                                                                <Link
+                                                                    to={`/influencers/${record.influencers.id}`}
+                                                                    className="pipeline-card-title"
+                                                                >
+                                                                    {record.influencers.name}
+                                                                </Link>
+                                                            ) : (
+                                                                <span className="pipeline-card-title">
+                                                                    Unknown Influencer
+                                                                </span>
+                                                            )}
 
-                                                    <span className="status-pill">{record.status}</span>
-                                                </div>
-
-                                                {record.campaigns?.id ? (
-                                                    <Link
-                                                        to={`/campaigns/${record.campaigns.id}`}
-                                                        className="campaign-name-link"
-                                                    >
-                                                        {record.campaigns.name}
-                                                    </Link>
-                                                ) : (
-                                                    <p className="campaign-name">No campaign</p>
-                                                )}
-
-                                                <div className="pipeline-meta-row">
-                                                    <span>{record.notes?.length || 0} notes</span>
-                                                    <span>Last updated: {getStatusTimestamp(record)}</span>
-                                                </div>
-
-                                                <div className="note-section">
-                                                    <label>Add Note</label>
-                                                    <textarea
-                                                        value={noteTextByRecord[record.id] || ''}
-                                                        onChange={(e) =>
-                                                            setNoteTextByRecord((current) => ({
-                                                                ...current,
-                                                                [record.id]: e.target.value,
-                                                            }))
-                                                        }
-                                                        placeholder="Add follow-up details..."
-                                                        rows="2"
-                                                    />
-
-                                                    <button
-                                                        type="button"
-                                                        className="secondary-button"
-                                                        onClick={() => handleAddNote(record.id)}
-                                                    >
-                                                        Save Note
-                                                    </button>
-                                                </div>
-
-                                                {record.notes?.length > 0 && (
-                                                    <div className="recent-notes">
-                                                        <strong>Notes</strong>
-                                                        <ul>
-                                                            {record.notes.slice(0, 3).map((note) => (
-                                                                <li key={note.id}>
-                                                                    <p>{note.content}</p>
-                                                                    <span>
-                                                                        {note.users?.name || note.users?.email || 'Unknown user'} ·{' '}
-                                                                        {new Date(note.created_at).toLocaleString()}
+                                                            <div className="pipeline-card-meta">
+                                                                {platform && (
+                                                                    <span className={`platform-badge ${platform.toLowerCase()}`}>
+                                                                        {platform}
                                                                     </span>
-                                                                </li>
-                                                            ))}
-                                                        </ul>
+                                                                )}
+                                                                {record.influencers?.handle && (
+                                                                    <span className="pipeline-card-handle">
+                                                                        {record.influencers.handle}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            {record.campaigns?.id ? (
+                                                                <Link
+                                                                    to={`/campaigns/${record.campaigns.id}`}
+                                                                    className="pipeline-card-campaign"
+                                                                >
+                                                                    {record.campaigns.name}
+                                                                </Link>
+                                                            ) : (
+                                                                <span className="pipeline-card-campaign">
+                                                                    No campaign
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        <span
+                                                            className={`status-dot status-dot--${status.toLowerCase()}`}
+                                                            title={status}
+                                                        />
                                                     </div>
-                                                )}
 
-                                                <div className="pipeline-card-actions">
-
-                                                    {NEXT_STATUS[record.status] ? (
-
+                                                    {/* Action footer */}
+                                                    <div className="pipeline-card-footer">
                                                         <button
-
                                                             type="button"
-
-                                                            className="primary-button full-width"
-
-                                                            onClick={() => handleMoveNext(record)}
-
+                                                            className="pipeline-card-action"
+                                                            onClick={() => handleToggleNote(record.id)}
                                                         >
-
-                                                            Move to {NEXT_STATUS[record.status]}
-
+                                                            {isNoteOpen
+                                                                ? 'Cancel'
+                                                                : noteCount > 0
+                                                                    ? `Notes (${noteCount})`
+                                                                    : '+ Note'}
                                                         </button>
 
-                                                    ) : (
+                                                        <div className="pipeline-card-footer-right">
+                                                            {NEXT_STATUS[status] ? (
+                                                                <button
+                                                                    type="button"
+                                                                    className="pipeline-card-move"
+                                                                    onClick={() => handleMoveNext(record)}
+                                                                >
+                                                                    → {NEXT_STATUS[status]}
+                                                                </button>
+                                                            ) : (
+                                                                <span className="pipeline-card-done">✓ Done</span>
+                                                            )}
+                                                            <button
+                                                                type="button"
+                                                                className="pipeline-card-remove"
+                                                                onClick={() => handleDeleteOutreach(record.id)}
+                                                                title="Remove outreach"
+                                                            >
+                                                                ✕
+                                                            </button>
+                                                        </div>
+                                                    </div>
 
-                                                        <p className="complete-text">Outreach complete</p>
-
+                                                    {/* Inline note input */}
+                                                    {isNoteOpen && (
+                                                        <div className="pipeline-note-expand">
+                                                            <textarea
+                                                                value={noteText}
+                                                                onChange={(e) => setNoteText(e.target.value)}
+                                                                placeholder="Add follow-up details..."
+                                                                rows="2"
+                                                                autoFocus
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                className="secondary-button"
+                                                                onClick={() => handleAddNote(record.id)}
+                                                            >
+                                                                Save Note
+                                                            </button>
+                                                        </div>
                                                     )}
-
-                                                    <button
-
-                                                        type="button"
-
-                                                        className="danger-button full-width"
-
-                                                        onClick={() => handleDeleteOutreach(record.id)}
-
-                                                    >
-
-                                                        Remove Outreach
-
-                                                    </button>
                                                 </div>
-                                            </div>
-                                        ))
+                                            )
+                                        })
                                     )}
                                 </div>
                             </section>
