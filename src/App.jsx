@@ -11,6 +11,7 @@ import Pipeline from './pages/Pipeline'
 import AdminDashboard from './pages/AdminDashboard'
 import Navbar from './components/Navbar'
 import ProtectedRoute from './components/ProtectedRoute'
+import NotFound from './pages/NotFound'
 import './App.css'
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/login" />} />
             <Route path="/login" element={<Login />} />
+            <Route path="*" element={<NotFound />} />
 
             <Route
               path="/dashboard"

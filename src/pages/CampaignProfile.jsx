@@ -57,6 +57,14 @@ function CampaignProfile() {
         return counts
     }, {})
 
+    const totalAssigned = outreachRecords.length
+    const postedCount = outreachRecords.filter(
+        (record) => record.status === 'POSTED'
+    ).length
+
+    const progressPercent =
+        totalAssigned === 0 ? 0 : Math.round((postedCount / totalAssigned) * 100)
+
     if (loading) return <p>Loading campaign profile...</p>
     if (error) return <p className="error">{error}</p>
     if (!campaign) return <p>Campaign not found.</p>
@@ -99,6 +107,33 @@ function CampaignProfile() {
                 <div className="stat-card small-stat">
                     <span>Posted</span>
                     <strong>{statusCounts.POSTED || 0}</strong>
+                </div>
+            </section>
+
+            <section className="card campaign-progress-card">
+                <div className="section-header">
+                    <div>
+                        <h2>Campaign Progress</h2>
+                        <p className="muted">
+                            {postedCount} of {totalAssigned} assigned influencers have completed the outreach cycle.
+                        </p>
+                    </div>
+
+                    <span className="status-pill">{progressPercent}% Complete</span>
+                </div>
+
+                <div className="progress-bar">
+                    <div
+                        className="progress-fill"
+                        style={{ width: `${progressPercent}%` }}
+                    ></div>
+                </div>
+
+                <div className="progress-summary">
+                    <span>Contacted: {statusCounts.CONTACTED || 0}</span>
+                    <span>Replied: {statusCounts.REPLIED || 0}</span>
+                    <span>Shipped: {statusCounts.SHIPPED || 0}</span>
+                    <span>Posted: {statusCounts.POSTED || 0}</span>
                 </div>
             </section>
 
