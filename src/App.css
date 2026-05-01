@@ -1117,3 +1117,28 @@ tbody td {
   color: #5b21b6;
   text-decoration: underline;
 }
+
+.recent-notes li {
+  list-style: none;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.recent-notes li:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.recent-notes p {
+  margin: 0 0 4px;
+  color: #374151;
+  font-size: 0.88rem;
+}
+
+.recent-notes span {
+  color: #6b7280;
+  font-size: 0.75rem;
+  font-weight: 600;
+}

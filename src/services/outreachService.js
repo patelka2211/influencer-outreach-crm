@@ -7,7 +7,13 @@ export async function getOutreachRecords() {
       *,
       influencers (*),
       campaigns (*),
-      notes (*)
+      notes (
+        *,
+        users (
+          name,
+          email
+        )
+      )
     `)
         .order('created_at', { ascending: false })
 

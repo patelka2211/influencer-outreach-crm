@@ -296,8 +296,14 @@ function Pipeline() {
                                                     <div className="recent-notes">
                                                         <strong>Notes</strong>
                                                         <ul>
-                                                            {record.notes.slice(0, 2).map((note) => (
-                                                                <li key={note.id}>{note.content}</li>
+                                                            {record.notes.slice(0, 3).map((note) => (
+                                                                <li key={note.id}>
+                                                                    <p>{note.content}</p>
+                                                                    <span>
+                                                                        {note.users?.name || note.users?.email || 'Unknown user'} ·{' '}
+                                                                        {new Date(note.created_at).toLocaleString()}
+                                                                    </span>
+                                                                </li>
                                                             ))}
                                                         </ul>
                                                     </div>
