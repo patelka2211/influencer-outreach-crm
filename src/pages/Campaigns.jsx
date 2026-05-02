@@ -4,10 +4,15 @@ import {
     createCampaign,
     deleteCampaign,
     getCampaigns,
-    updateCampaignStatus,
 } from '../services/campaignService'
+import ConfirmDialog from '../components/ConfirmDialog'
+import Toast from '../components/Toast'
+import { useConfirm } from '../hooks/useConfirm'
+import { useToast } from '../hooks/useToast'
 
 function Campaigns() {
+    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm()
+    const { toast, showToast } = useToast()
     const [campaigns, setCampaigns] = useState([])
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -86,6 +91,7 @@ function Campaigns() {
             })
             closeModal()
             await loadCampaigns()
+            showToast('Campaign created')
         } catch (err) {
             console.error(err)
             setError(err.message || 'Could not create campaign.')
@@ -94,30 +100,25 @@ function Campaigns() {
         }
     }
 
-    async function handleStatusChange(id, status) {
-        try {
-            setError('')
-            await updateCampaignStatus(id, status)
-            await loadCampaigns()
-        } catch (err) {
-            console.error(err)
-            setError(err.message || 'Could not update campaign status.')
-        }
-    }
-
     async function handleDelete(id, status) {
         let message = 'Are you sure you want to delete this campaign?'
         if (status === 'ACTIVE') {
-            message = 'This campaign may have active outreach records. Are you sure you want to delete it?'
+            message = 'This campaign has active outreach records. Deleting it may remove all associated outreach data.'
         } else if (status === 'COMPLETED') {
-            message = 'This campaign is completed and has outreach data. Are you sure you want to delete it?'
+            message = 'This campaign is completed and has outreach data. Are you sure you want to permanently delete it?'
         }
-        const confirmed = window.confirm(message)
-        if (!confirmed) return
+        const ok = await confirm({
+            title: 'Delete campaign',
+            message,
+            danger: true,
+            confirmLabel: 'Delete',
+        })
+        if (!ok) return
         try {
             setError('')
             await deleteCampaign(id)
             await loadCampaigns()
+            showToast('Campaign deleted')
         } catch (err) {
             console.error(err)
             setError(err.message || 'Could not delete campaign.')
@@ -149,6 +150,8 @@ function Campaigns() {
 
     return (
         <div>
+            <Toast message={toast.message} type={toast.type} />
+            <ConfirmDialog state={confirmState} onConfirm={handleConfirm} onCancel={handleCancel} />
             {modalOpen && (
                 <div
                     className="modal-overlay"
@@ -314,25 +317,14 @@ function Campaigns() {
                                         )}
                                     </div>
                                     <div className="campaign-grid-card-actions">
-                                        <select
-                                            className="list-card-status-select"
-                                            value={campaign.status}
-                                            onChange={(e) =>
-                                                handleStatusChange(campaign.id, e.target.value)
-                                            }
-                                            aria-label="Update status"
-                                        >
-                                            <option value="DRAFT">Draft</option>
-                                            <option value="ACTIVE">Active</option>
-                                            <option value="COMPLETED">Completed</option>
-                                            <option value="ARCHIVED">Archived</option>
-                                        </select>
-                                        <Link
-                                            to={`/campaigns/${campaign.id}/edit`}
-                                            className="secondary-link-button compact-link-button"
-                                        >
-                                            Edit
-                                        </Link>
+                                        {campaign.status !== 'COMPLETED' && campaign.status !== 'ARCHIVED' && (
+                                            <Link
+                                                to={`/campaigns/${campaign.id}/edit`}
+                                                className="secondary-link-button compact-link-button"
+                                            >
+                                                Edit
+                                            </Link>
+                                        )}
                                         <button
                                             type="button"
                                             className="danger-button"

@@ -5,7 +5,7 @@ function ProtectedRoute({ children, allowedRoles }) {
     const { profile, loading } = useAuth()
 
     if (loading) {
-        return <p>Loading...</p>
+        return null
     }
 
     if (!profile) {

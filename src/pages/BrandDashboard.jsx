@@ -30,6 +30,7 @@ function BrandDashboard() {
     influencers: [],
     campaigns: [],
     outreach: [],
+    activeOutreach: [],
     statusCounts: {
       CONTACTED: 0,
       REPLIED: 0,
@@ -65,7 +66,7 @@ function BrandDashboard() {
     loadDashboard()
   }, [])
 
-  const recentOutreach = dashboardData.outreach.slice(0, 5)
+  const recentOutreach = dashboardData.activeOutreach.slice(0, 5)
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
@@ -74,7 +75,7 @@ function BrandDashboard() {
   })
 
   const snapshotByStatus = STATUS_LABELS.reduce((acc, s) => {
-    acc[s] = dashboardData.outreach.filter(r => r.status === s)
+    acc[s] = dashboardData.activeOutreach.filter(r => r.status === s)
     return acc
   }, {})
 
@@ -283,7 +284,7 @@ function BrandDashboard() {
             <p className="muted">No campaigns have been created yet.</p>
           ) : (
             <div className="dash-camp-list">
-              {dashboardData.campaigns.slice(0, 3).map((campaign) => {
+              {dashboardData.campaigns.filter(c => c.status !== 'ARCHIVED').slice(0, 3).map((campaign) => {
                 const total  = dashboardData.outreach.filter(r => r.campaign_id === campaign.id).length
                 const posted = dashboardData.outreach.filter(r => r.campaign_id === campaign.id && r.status === 'POSTED').length
                 const pct    = total === 0 ? 0 : Math.round((posted / total) * 100)

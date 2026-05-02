@@ -5,8 +5,14 @@ import {
     deleteInfluencer,
     getInfluencers,
 } from '../services/influencerService'
+import ConfirmDialog from '../components/ConfirmDialog'
+import Toast from '../components/Toast'
+import { useConfirm } from '../hooks/useConfirm'
+import { useToast } from '../hooks/useToast'
 
 function Influencers() {
+    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm()
+    const { toast, showToast } = useToast()
     const [influencers, setInfluencers] = useState([])
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -92,6 +98,7 @@ function Influencers() {
             })
             closeModal()
             await loadInfluencers()
+            showToast('Influencer added')
         } catch (err) {
             console.error(err)
             setError(err.message || 'Could not save influencer.')
@@ -101,12 +108,18 @@ function Influencers() {
     }
 
     async function handleDelete(id) {
-        const confirmed = window.confirm('Are you sure you want to delete this influencer?')
-        if (!confirmed) return
+        const ok = await confirm({
+            title: 'Delete influencer',
+            message: 'Are you sure you want to delete this influencer? This will also remove any outreach records associated with them.',
+            danger: true,
+            confirmLabel: 'Delete',
+        })
+        if (!ok) return
         try {
             setError('')
             await deleteInfluencer(id)
             await loadInfluencers()
+            showToast('Influencer deleted')
         } catch (err) {
             console.error(err)
             setError(err.message || 'Could not delete influencer.')
@@ -183,6 +196,8 @@ function Influencers() {
 
     return (
         <div>
+            <Toast message={toast.message} type={toast.type} />
+            <ConfirmDialog state={confirmState} onConfirm={handleConfirm} onCancel={handleCancel} />
             {modalOpen && (
                 <div
                     className="modal-overlay"

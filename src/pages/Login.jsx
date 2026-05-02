@@ -17,7 +17,13 @@ function Login() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [role, setRole] = useState('BRAND_MANAGER')
-    const [error, setError] = useState('')
+    const [error, setError] = useState(() => {
+        if (localStorage.getItem('auth_deactivated')) {
+            localStorage.removeItem('auth_deactivated')
+            return 'Your account has been deactivated. Please contact your administrator.'
+        }
+        return ''
+    })
     const [loading, setLoading] = useState(false)
 
     const { profile, setProfile } = useAuth()

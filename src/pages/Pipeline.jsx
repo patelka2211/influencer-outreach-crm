@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { getInfluencers } from '../services/influencerService'
 import { getCampaigns } from '../services/campaignService'
 import { Link } from 'react-router-dom'
@@ -11,6 +11,9 @@ import {
 } from '../services/outreachService'
 import { STATUS_ORDER, NEXT_STATUS, REPLIED_STALE_DAYS } from '../constants/outreach'
 import Toast from '../components/Toast'
+import ConfirmDialog from '../components/ConfirmDialog'
+import { useConfirm } from '../hooks/useConfirm'
+import { useToast } from '../hooks/useToast'
 
 const AVATAR_VARIANTS = ['a', 'b', 'c', 'd']
 
@@ -55,6 +58,8 @@ function getRepliedStaleDays(record) {
 }
 
 function Pipeline() {
+    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm()
+
     const [outreachRecords, setOutreachRecords] = useState([])
     const [influencers, setInfluencers] = useState([])
     const [campaigns, setCampaigns] = useState([])
@@ -80,13 +85,7 @@ function Pipeline() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
 
-    // Toast
-    const [toastMessage, setToastMessage] = useState('')
-
-    const showToast = useCallback((message) => {
-        setToastMessage(message)
-        setTimeout(() => setToastMessage(''), 3000)
-    }, [])
+    const { toast, showToast } = useToast()
 
     async function loadPipelineData() {
         try {
@@ -164,6 +163,7 @@ function Pipeline() {
             })
             closeOutreachModal()
             await loadPipelineData()
+            showToast('Outreach started')
         } catch (err) {
             console.error(err)
             setOutreachError(err.message || 'Could not create outreach record.')
@@ -176,11 +176,11 @@ function Pipeline() {
         const campStatus = record.campaigns?.status
 
         if (campStatus === 'DRAFT') {
-            showToast('Campaign must be Active before managing outreach.')
+            showToast('Campaign must be Active before managing outreach.', 'error')
             return
         }
         if (campStatus === 'COMPLETED' || campStatus === 'ARCHIVED') {
-            showToast(`Campaign ${campStatus.toLowerCase()} — outreach cannot be moved.`)
+            showToast(`Campaign ${campStatus.toLowerCase()} — outreach cannot be moved.`, 'error')
             return
         }
 
@@ -191,10 +191,11 @@ function Pipeline() {
             setError('')
             await updateOutreachStatus(record.id, nextStatus)
             await loadPipelineData()
+            showToast(`Moved to ${nextStatus.charAt(0) + nextStatus.slice(1).toLowerCase()}`)
         } catch (err) {
             console.error(err)
             if (err.message?.includes('Invalid transition')) {
-                showToast(err.message)
+                showToast(err.message, 'error')
             } else {
                 setError(err.message || 'Could not update outreach status.')
             }
@@ -222,6 +223,7 @@ function Pipeline() {
             setNoteText('')
             setExpandedNoteId(null)
             await loadPipelineData()
+            showToast('Note saved')
         } catch (err) {
             console.error(err)
             setError(err.message || 'Could not add note.')
@@ -252,15 +254,21 @@ function Pipeline() {
     async function handleDeleteOutreach(record) {
         const campStatus = record.campaigns?.status
         if (campStatus === 'COMPLETED' || campStatus === 'ARCHIVED') {
-            showToast(`Cannot remove outreach from a ${campStatus.toLowerCase()} campaign.`)
+            showToast(`Cannot remove outreach from a ${campStatus.toLowerCase()} campaign.`, 'error')
             return
         }
-        const confirmed = window.confirm('Are you sure you want to remove this outreach record?')
-        if (!confirmed) return
+        const ok = await confirm({
+            title: 'Remove outreach',
+            message: 'Are you sure you want to remove this outreach record?',
+            danger: true,
+            confirmLabel: 'Remove',
+        })
+        if (!ok) return
         try {
             setError('')
             await deleteOutreachRecord(record.id)
             await loadPipelineData()
+            showToast('Outreach removed')
         } catch (err) {
             console.error(err)
             setError(err.message || 'Could not delete outreach record.')
@@ -269,7 +277,10 @@ function Pipeline() {
 
     const filteredOutreachRecords =
         selectedPipelineCampaignId === 'ALL'
-            ? outreachRecords
+            ? outreachRecords.filter(r => {
+                const s = r.campaigns?.status
+                return s !== 'COMPLETED' && s !== 'ARCHIVED'
+            })
             : outreachRecords.filter((r) => r.campaign_id === selectedPipelineCampaignId)
 
     const pipelineStats = {
@@ -291,7 +302,8 @@ function Pipeline() {
 
     return (
         <div>
-            <Toast message={toastMessage} />
+            <Toast message={toast.message} type={toast.type} />
+            <ConfirmDialog state={confirmState} onConfirm={handleConfirm} onCancel={handleCancel} />
 
             {/* ── Start Outreach Modal ── */}
             {outreachModalOpen && (

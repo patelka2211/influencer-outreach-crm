@@ -1694,6 +1694,31 @@ tbody td select:focus {
   background: var(--accent-light);
 }
 
+.confirm-dialog {
+  max-width: 400px;
+  padding: 28px;
+}
+
+.confirm-dialog-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: var(--text);
+}
+
+.confirm-dialog-message {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 /* =========================================
    LIST CARD ROWS
    ========================================= */

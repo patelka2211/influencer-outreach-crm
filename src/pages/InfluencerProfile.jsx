@@ -6,9 +6,15 @@ import {
     createOutreachRecord,
     deleteOutreachRecord,
 } from '../services/outreachService'
+import ConfirmDialog from '../components/ConfirmDialog'
+import Toast from '../components/Toast'
+import { useConfirm } from '../hooks/useConfirm'
+import { useToast } from '../hooks/useToast'
 
 function InfluencerProfile() {
     const { id } = useParams()
+    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm()
+    const { toast, showToast } = useToast()
     const [influencer, setInfluencer] = useState(null)
     const [outreachRecords, setOutreachRecords] = useState([])
     const [loading, setLoading] = useState(true)
@@ -99,6 +105,7 @@ function InfluencerProfile() {
 
             setSelectedCampaignId('')
             await loadOutreachRecords()
+            showToast('Assigned to campaign')
         } catch (err) {
             console.error(err)
             setError(err.message || 'Could not assign influencer to campaign.')
@@ -108,11 +115,13 @@ function InfluencerProfile() {
     }
 
     async function handleRemoveFromCampaign(outreachId) {
-        const confirmed = window.confirm(
-            'Are you sure you want to remove this influencer from the campaign?'
-        )
-
-        if (!confirmed) return
+        const ok = await confirm({
+            title: 'Remove from campaign',
+            message: 'Are you sure you want to remove this influencer from the campaign?',
+            danger: true,
+            confirmLabel: 'Remove',
+        })
+        if (!ok) return
 
         try {
             setError('')
@@ -122,6 +131,7 @@ function InfluencerProfile() {
             setOutreachRecords((current) =>
                 current.filter((record) => record.id !== outreachId)
             )
+            showToast('Removed from campaign')
         } catch (err) {
             console.error(err)
             setError(err.message || 'Could not remove influencer from campaign.')
@@ -172,11 +182,13 @@ function InfluencerProfile() {
             </div>
         </div>
     )
-    if (error) return <p className="error">{error}</p>
+    if (error && !influencer) return <p className="error">{error}</p>
     if (!influencer) return <p>Influencer not found.</p>
 
     return (
         <div>
+            <Toast message={toast.message} type={toast.type} />
+            <ConfirmDialog state={confirmState} onConfirm={handleConfirm} onCancel={handleCancel} />
             <div className="page-header dashboard-header">
                 <div>
                     <Link to="/influencers" className="back-link">
@@ -264,6 +276,8 @@ function InfluencerProfile() {
                                     </option>
                                 ))}
                             </select>
+
+                            {error && <p className="error">{error}</p>}
 
                             <button type="submit" disabled={assigning}>
                                 {assigning ? 'Assigning...' : 'Assign to Campaign'}

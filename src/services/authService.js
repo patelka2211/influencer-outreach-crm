@@ -72,6 +72,12 @@ export async function getCurrentProfile() {
 
     if (profileError) throw profileError
 
+    if (!profile.is_active) {
+        await supabase.auth.signOut()
+        localStorage.setItem('auth_deactivated', 'true')
+        return null
+    }
+
     return profile
 }
 

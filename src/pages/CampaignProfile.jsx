@@ -12,10 +12,16 @@ import {
     deleteOutreachRecord,
 } from '../services/outreachService'
 import { STATUS_ORDER } from '../constants/outreach'
+import ConfirmDialog from '../components/ConfirmDialog'
+import Toast from '../components/Toast'
+import { useConfirm } from '../hooks/useConfirm'
+import { useToast } from '../hooks/useToast'
 
 function CampaignProfile() {
     const { id } = useParams()
     const navigate = useNavigate()
+    const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm()
+    const { toast, showToast } = useToast()
 
     const [campaign, setCampaign] = useState(null)
     const [outreachRecords, setOutreachRecords] = useState([])
@@ -78,26 +84,55 @@ function CampaignProfile() {
 
     async function handleLaunchCampaign() {
         await handleStatusTransition('ACTIVE')
+        showToast('Campaign launched')
     }
 
     async function handleCompleteCampaign() {
         const inProgress = outreachRecords.filter(r => r.status !== 'POSTED')
-        let message = 'Mark this campaign as completed?'
-        if (inProgress.length > 0) {
-            message = `${inProgress.length} influencer${inProgress.length === 1 ? '' : 's'} haven't reached Posted yet. Mark as completed anyway?`
-        }
-        if (!window.confirm(message)) return
+        const message = inProgress.length > 0
+            ? `${inProgress.length} influencer${inProgress.length === 1 ? '' : 's'} haven't reached Posted yet. Mark as completed anyway?`
+            : 'Mark this campaign as completed?'
+        const ok = await confirm({
+            title: 'Complete campaign',
+            message,
+            confirmLabel: 'Complete',
+        })
+        if (!ok) return
         await handleStatusTransition('COMPLETED')
+        showToast('Campaign completed')
+    }
+
+    async function handleReactivateCampaign() {
+        const ok = await confirm({
+            title: 'Reactivate campaign',
+            message: 'Reactivate this campaign to Active? Outreach will be editable again.',
+            confirmLabel: 'Reactivate',
+        })
+        if (!ok) return
+        await handleStatusTransition('ACTIVE')
+        showToast('Campaign reactivated')
     }
 
     async function handleArchiveCampaign() {
-        if (!window.confirm('Archive this completed campaign?')) return
+        const ok = await confirm({
+            title: 'Archive campaign',
+            message: 'Archive this completed campaign? It will be hidden from the main list.',
+            confirmLabel: 'Archive',
+        })
+        if (!ok) return
         await handleStatusTransition('ARCHIVED')
+        showToast('Campaign archived')
     }
 
     async function handleRestoreCampaign() {
-        if (!window.confirm('Restore this campaign to completed status?')) return
+        const ok = await confirm({
+            title: 'Restore campaign',
+            message: 'Restore this campaign to completed status?',
+            confirmLabel: 'Restore',
+        })
+        if (!ok) return
         await handleStatusTransition('COMPLETED')
+        showToast('Campaign restored')
     }
 
     async function handleAssignInfluencer(e) {
@@ -130,6 +165,7 @@ function CampaignProfile() {
 
             const updatedOutreach = await getCampaignOutreach(id)
             setOutreachRecords(updatedOutreach || [])
+            showToast('Influencer assigned')
         } catch (err) {
             console.error(err)
             setError(err.message || 'Could not assign influencer to campaign.')
@@ -139,11 +175,13 @@ function CampaignProfile() {
     }
 
     async function handleRemoveInfluencer(outreachId) {
-        const confirmed = window.confirm(
-            'Are you sure you want to remove this influencer from the campaign?'
-        )
-
-        if (!confirmed) return
+        const ok = await confirm({
+            title: 'Remove influencer',
+            message: 'Are you sure you want to remove this influencer from the campaign?',
+            danger: true,
+            confirmLabel: 'Remove',
+        })
+        if (!ok) return
 
         try {
             setError('')
@@ -153,6 +191,7 @@ function CampaignProfile() {
             setOutreachRecords((current) =>
                 current.filter((record) => record.id !== outreachId)
             )
+            showToast('Influencer removed')
         } catch (err) {
             console.error(err)
             setError(err.message || 'Could not remove influencer from campaign.')
@@ -162,13 +201,17 @@ function CampaignProfile() {
     async function handleDeleteCampaign() {
         let message = 'Are you sure you want to delete this campaign? This may also remove related outreach records depending on your database rules.'
         if (campaign?.status === 'ACTIVE') {
-            message = 'This campaign may have active outreach records. Are you sure you want to delete it?'
+            message = 'This campaign has active outreach records. Deleting it may remove all associated outreach data.'
         } else if (campaign?.status === 'COMPLETED') {
-            message = 'This campaign is completed and has outreach data. Are you sure you want to delete it?'
+            message = 'This campaign is completed and has outreach data. Are you sure you want to permanently delete it?'
         }
-
-        const confirmed = window.confirm(message)
-        if (!confirmed) return
+        const ok = await confirm({
+            title: 'Delete campaign',
+            message,
+            danger: true,
+            confirmLabel: 'Delete',
+        })
+        if (!ok) return
 
         try {
             setError('')
@@ -266,6 +309,8 @@ function CampaignProfile() {
 
     return (
         <div style={isArchived ? { opacity: 0.85 } : undefined}>
+            <Toast message={toast.message} type={toast.type} />
+            <ConfirmDialog state={confirmState} onConfirm={handleConfirm} onCancel={handleCancel} />
             <div className="page-header dashboard-header">
                 <div>
                     <Link to="/campaigns" className="back-link">
@@ -308,14 +353,24 @@ function CampaignProfile() {
                     )}
 
                     {campaign.status === 'COMPLETED' && (
-                        <button
-                            type="button"
-                            className="secondary-button"
-                            onClick={handleArchiveCampaign}
-                            disabled={statusUpdating}
-                        >
-                            Archive Campaign
-                        </button>
+                        <>
+                            <button
+                                type="button"
+                                className="secondary-button"
+                                onClick={handleReactivateCampaign}
+                                disabled={statusUpdating}
+                            >
+                                Reactivate Campaign
+                            </button>
+                            <button
+                                type="button"
+                                className="secondary-button"
+                                onClick={handleArchiveCampaign}
+                                disabled={statusUpdating}
+                            >
+                                Archive Campaign
+                            </button>
+                        </>
                     )}
 
                     {campaign.status === 'ARCHIVED' && (

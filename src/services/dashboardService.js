@@ -27,11 +27,15 @@ export async function getBrandDashboardData() {
   const campaigns = campaignsResult.data || []
   const outreach = outreachResult.data || []
 
+  const activeOutreach = outreach.filter(
+    (r) => r.campaigns?.status !== 'COMPLETED' && r.campaigns?.status !== 'ARCHIVED'
+  )
+
   const statusCounts = {
-    CONTACTED: outreach.filter((record) => record.status === 'CONTACTED').length,
-    REPLIED: outreach.filter((record) => record.status === 'REPLIED').length,
-    SHIPPED: outreach.filter((record) => record.status === 'SHIPPED').length,
-    POSTED: outreach.filter((record) => record.status === 'POSTED').length,
+    CONTACTED: activeOutreach.filter((record) => record.status === 'CONTACTED').length,
+    REPLIED: activeOutreach.filter((record) => record.status === 'REPLIED').length,
+    SHIPPED: activeOutreach.filter((record) => record.status === 'SHIPPED').length,
+    POSTED: activeOutreach.filter((record) => record.status === 'POSTED').length,
   }
 
   const activeCampaigns = campaigns.filter(
@@ -42,12 +46,13 @@ export async function getBrandDashboardData() {
     influencers,
     campaigns,
     outreach,
+    activeOutreach,
     statusCounts,
     totals: {
       totalInfluencers: influencers.length,
       totalCampaigns: campaigns.length,
       activeCampaigns,
-      totalOutreach: outreach.length,
+      totalOutreach: activeOutreach.length,
     },
   }
 }
