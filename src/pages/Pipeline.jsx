@@ -11,12 +11,23 @@ import {
 } from '../services/outreachService'
 
 const STATUS_ORDER = ['CONTACTED', 'REPLIED', 'SHIPPED', 'POSTED']
+const AVATAR_VARIANTS = ['a', 'b', 'c', 'd']
 
 const NEXT_STATUS = {
     CONTACTED: 'REPLIED',
     REPLIED: 'SHIPPED',
     SHIPPED: 'POSTED',
     POSTED: null,
+}
+
+function getInitials(name) {
+    if (!name) return '?'
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+}
+
+function capitalize(str) {
+    if (!str) return str
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
 }
 
 function Pipeline() {
@@ -35,6 +46,12 @@ function Pipeline() {
     // Inline note expansion — only one card open at a time
     const [expandedNoteId, setExpandedNoteId] = useState(null)
     const [noteText, setNoteText] = useState('')
+
+    // Show all notes expansion per card
+    const [expandedAllNotesId, setExpandedAllNotesId] = useState(null)
+
+    // Columns expanded beyond 3-card limit
+    const [expandedColumns, setExpandedColumns] = useState(new Set())
 
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
@@ -163,6 +180,27 @@ function Pipeline() {
         }
     }
 
+    function toggleAllNotes(recordId) {
+        setExpandedAllNotesId(prev => prev === recordId ? null : recordId)
+    }
+
+    function toggleColumnExpand(status) {
+        setExpandedColumns(prev => {
+            const next = new Set(prev)
+            if (next.has(status)) next.delete(status)
+            else next.add(status)
+            return next
+        })
+    }
+
+    function formatNoteTime(dateStr) {
+        if (!dateStr) return 'No date'
+        return new Date(dateStr).toLocaleString(undefined, {
+            month: 'short', day: 'numeric', year: 'numeric',
+            hour: 'numeric', minute: '2-digit',
+        })
+    }
+
     async function handleDeleteOutreach(recordId) {
         const confirmed = window.confirm('Are you sure you want to remove this outreach record?')
         if (!confirmed) return
@@ -251,62 +289,54 @@ function Pipeline() {
             {/* ── Page Header ── */}
             <div className="page-header dashboard-header">
                 <div>
-                    <h1>Outreach Pipeline</h1>
-                    <p className="muted">
-                        Track influencer outreach from first contact to post.
-                    </p>
+                    <h1>Outreach pipeline</h1>
+                    <p className="muted">Track influencer outreach from contacted to posted.</p>
                 </div>
-                <button className="primary-button" onClick={openOutreachModal}>
-                    Start Outreach
-                </button>
-            </div>
-
-            {error && <p className="error" style={{ marginBottom: 16 }}>{error}</p>}
-
-            {/* ── Filter + Stats ── */}
-            <section className="card pipeline-filter-card">
-                <div className="section-header">
-                    <div>
-                        <h2>Pipeline View</h2>
-                        <p className="muted">Filter by campaign to narrow the board.</p>
-                    </div>
+                <div className="dashboard-actions">
                     <select
+                        className="pipeline-filter-select"
                         value={selectedPipelineCampaignId}
                         onChange={(e) => setSelectedPipelineCampaignId(e.target.value)}
-                        className="pipeline-filter-select"
                     >
                         <option value="ALL">All Campaigns</option>
                         {campaigns.map((c) => (
                             <option key={c.id} value={c.id}>{c.name}</option>
                         ))}
                     </select>
+                    <button className="secondary-button" disabled>Export CSV</button>
+                    <button className="primary-button" onClick={openOutreachModal}>+ Start Outreach</button>
                 </div>
+            </div>
 
-                <div className="pipeline-stats-grid">
-                    <div className="pipeline-stat-card">
-                        <span>Total</span>
-                        <strong>{pipelineStats.total}</strong>
-                    </div>
-                    <div className="pipeline-stat-card">
-                        <span>Contacted</span>
-                        <strong>{pipelineStats.CONTACTED}</strong>
-                    </div>
-                    <div className="pipeline-stat-card">
-                        <span>Replied</span>
-                        <strong>{pipelineStats.REPLIED}</strong>
-                    </div>
-                    <div className="pipeline-stat-card">
-                        <span>Shipped</span>
-                        <strong>{pipelineStats.SHIPPED}</strong>
-                    </div>
-                    <div className="pipeline-stat-card">
-                        <span>Posted</span>
-                        <strong>{pipelineStats.POSTED}</strong>
-                    </div>
+            {error && <p className="error" style={{ marginBottom: 16 }}>{error}</p>}
+
+            {/* ── Pipeline Stats ── */}
+            <p className="dash-section-label">Pipeline overview</p>
+            <div className="pipeline-stats-grid" style={{ marginBottom: 22 }}>
+                <div className="pipeline-stat-card">
+                    <span>Total</span>
+                    <strong>{pipelineStats.total}</strong>
                 </div>
-            </section>
+                <div className="pipeline-stat-card">
+                    <span>Contacted</span>
+                    <strong>{pipelineStats.CONTACTED}</strong>
+                </div>
+                <div className="pipeline-stat-card">
+                    <span>Replied</span>
+                    <strong>{pipelineStats.REPLIED}</strong>
+                </div>
+                <div className="pipeline-stat-card">
+                    <span>Shipped</span>
+                    <strong>{pipelineStats.SHIPPED}</strong>
+                </div>
+                <div className="pipeline-stat-card">
+                    <span>Posted</span>
+                    <strong>{pipelineStats.POSTED}</strong>
+                </div>
+            </div>
 
             {/* ── Kanban Board ── */}
+            <p className="dash-section-label">Kanban board</p>
             {loading ? (
                 <p className="muted">Loading pipeline...</p>
             ) : (
@@ -314,98 +344,138 @@ function Pipeline() {
                     {STATUS_ORDER.map((status) => {
                         const records = getRecordsByStatus(status)
 
+                        const isColExpanded = expandedColumns.has(status)
+                        const visibleRecords = isColExpanded ? records : records.slice(0, 3)
+                        const hiddenCount = records.length - 3
+
                         return (
                             <section key={status} className="pipeline-column">
                                 <div className="pipeline-column-header">
-                                    <h2>{status}</h2>
-                                    <span>{records.length}</span>
+                                    <h2>{capitalize(status)}</h2>
+                                    <span className={`pipe-cnt pipe-cnt--${status.toLowerCase()}`}>{records.length}</span>
                                 </div>
 
                                 <div className="pipeline-cards">
                                     {records.length === 0 ? (
                                         <p className="empty-column">No records yet.</p>
                                     ) : (
-                                        records.map((record) => {
+                                        visibleRecords.map((record, i) => {
                                             const platform = record.influencers?.platform
-                                            const noteCount = record.notes?.length || 0
+                                            const sortedNotes = [...(record.notes || [])].sort(
+                                                (a, b) => new Date(b.created_at) - new Date(a.created_at)
+                                            )
+                                            const noteCount = sortedNotes.length
                                             const isNoteOpen = expandedNoteId === record.id
+                                            const mostRecentNote = sortedNotes[0]
 
                                             return (
                                                 <div key={record.id} className="pipeline-card">
-                                                    {/* Card body */}
-                                                    <div className="pipeline-card-main">
-                                                        <div className="pipeline-card-info">
-                                                            {record.influencers?.id ? (
-                                                                <Link
-                                                                    to={`/influencers/${record.influencers.id}`}
-                                                                    className="pipeline-card-title"
-                                                                >
-                                                                    {record.influencers.name}
-                                                                </Link>
-                                                            ) : (
-                                                                <span className="pipeline-card-title">
-                                                                    Unknown Influencer
-                                                                </span>
-                                                            )}
-
-                                                            <div className="pipeline-card-meta">
-                                                                {platform && (
-                                                                    <span className={`platform-badge ${platform.toLowerCase()}`}>
-                                                                        {platform}
-                                                                    </span>
+                                                    {/* Avatar + name/handle + platform badge */}
+                                                    <div className="pipe-card-top">
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                            <div className={`dash-avatar dash-avatar--${AVATAR_VARIANTS[i % 4]}`}>
+                                                                {getInitials(record.influencers?.name)}
+                                                            </div>
+                                                            <div className="pipeline-card-info">
+                                                                {record.influencers?.id ? (
+                                                                    <Link
+                                                                        to={`/influencers/${record.influencers.id}`}
+                                                                        className="pipeline-card-title"
+                                                                    >
+                                                                        {record.influencers.name}
+                                                                    </Link>
+                                                                ) : (
+                                                                    <span className="pipeline-card-title">Unknown Influencer</span>
                                                                 )}
                                                                 {record.influencers?.handle && (
                                                                     <span className="pipeline-card-handle">
-                                                                        {record.influencers.handle}
+                                                                        {record.influencers.handle.startsWith('@')
+                                                                            ? record.influencers.handle
+                                                                            : `@${record.influencers.handle}`}
                                                                     </span>
                                                                 )}
                                                             </div>
+                                                        </div>
+                                                        {platform && (
+                                                            <span className={`platform-badge ${platform.toLowerCase()}`}>
+                                                                {platform}
+                                                            </span>
+                                                        )}
+                                                    </div>
 
-                                                            {record.campaigns?.id ? (
-                                                                <Link
-                                                                    to={`/campaigns/${record.campaigns.id}`}
-                                                                    className="pipeline-card-campaign"
-                                                                >
-                                                                    {record.campaigns.name}
-                                                                </Link>
+                                                    {/* Campaign name */}
+                                                    {record.campaigns?.id ? (
+                                                        <Link
+                                                            to={`/campaigns/${record.campaigns.id}`}
+                                                            className="pipeline-card-campaign"
+                                                        >
+                                                            {record.campaigns.name}
+                                                        </Link>
+                                                    ) : (
+                                                        <span className="pipeline-card-campaign">No campaign</span>
+                                                    )}
+
+                                                    {/* Note previews */}
+                                                    {mostRecentNote && !isNoteOpen && (
+                                                        <div className="pipe-notes-section">
+                                                            {expandedAllNotesId === record.id ? (
+                                                                <div className="pipe-all-notes">
+                                                                    {sortedNotes.map((note) => (
+                                                                        <div key={note.id} className="pipe-note-preview">
+                                                                            <p className="pipe-note-text">{note.content}</p>
+                                                                            <span className="pipe-note-time">{formatNoteTime(note.created_at)}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
                                                             ) : (
-                                                                <span className="pipeline-card-campaign">
-                                                                    No campaign
-                                                                </span>
+                                                                <div className="pipe-note-preview">
+                                                                    <p className="pipe-note-text">{mostRecentNote.content}</p>
+                                                                    <span className="pipe-note-time">{formatNoteTime(mostRecentNote.created_at)}</span>
+                                                                </div>
+                                                            )}
+                                                            {noteCount > 1 && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="pipe-show-notes-btn"
+                                                                    onClick={() => toggleAllNotes(record.id)}
+                                                                >
+                                                                    {expandedAllNotesId === record.id
+                                                                        ? 'Hide notes'
+                                                                        : `Show all notes (${noteCount})`}
+                                                                </button>
                                                             )}
                                                         </div>
-
-                                                        <span
-                                                            className={`status-dot status-dot--${status.toLowerCase()}`}
-                                                            title={status}
-                                                        />
-                                                    </div>
+                                                    )}
 
                                                     {/* Action footer */}
                                                     <div className="pipeline-card-footer">
                                                         <button
                                                             type="button"
-                                                            className="pipeline-card-action"
+                                                            className="pipe-note-btn"
                                                             onClick={() => handleToggleNote(record.id)}
                                                         >
-                                                            {isNoteOpen
-                                                                ? 'Cancel'
-                                                                : noteCount > 0
-                                                                    ? `Notes (${noteCount})`
-                                                                    : '+ Note'}
+                                                            {isNoteOpen ? 'Cancel' : '+ Note'}
                                                         </button>
-
+                                                        <span className="pipe-note-count">
+                                                            {noteCount} note{noteCount === 1 ? '' : 's'}
+                                                        </span>
                                                         <div className="pipeline-card-footer-right">
                                                             {NEXT_STATUS[status] ? (
                                                                 <button
                                                                     type="button"
-                                                                    className="pipeline-card-move"
+                                                                    className="pipe-move-btn"
                                                                     onClick={() => handleMoveNext(record)}
                                                                 >
-                                                                    → {NEXT_STATUS[status]}
+                                                                    Move to {capitalize(NEXT_STATUS[status])}
                                                                 </button>
                                                             ) : (
-                                                                <span className="pipeline-card-done">✓ Done</span>
+                                                                <button
+                                                                    type="button"
+                                                                    className="pipe-move-btn pipe-move-btn--done"
+                                                                    disabled
+                                                                >
+                                                                    Complete
+                                                                </button>
                                                             )}
                                                             <button
                                                                 type="button"
@@ -440,6 +510,24 @@ function Pipeline() {
                                                 </div>
                                             )
                                         })
+                                    )}
+                                    {!isColExpanded && hiddenCount > 0 && (
+                                        <button
+                                            type="button"
+                                            className="pipe-show-more-btn"
+                                            onClick={() => toggleColumnExpand(status)}
+                                        >
+                                            + {hiddenCount} more
+                                        </button>
+                                    )}
+                                    {isColExpanded && records.length > 3 && (
+                                        <button
+                                            type="button"
+                                            className="pipe-show-more-btn"
+                                            onClick={() => toggleColumnExpand(status)}
+                                        >
+                                            Show less
+                                        </button>
                                     )}
                                 </div>
                             </section>

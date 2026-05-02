@@ -20,7 +20,7 @@
 
   --sidebar-bg:           #6c5ce7;
   --sidebar-text-active:  #ffffff;
-  --sidebar-text-inactive: rgba(255, 255, 255, 0.55);
+  --sidebar-text-inactive: rgba(255, 255, 255, 0.45);
   --sidebar-active-bg:    rgba(255, 255, 255, 0.15);
   --sidebar-width:        195px;
 
@@ -50,9 +50,10 @@ h1 {
   font-family: 'Instrument Serif', Georgia, serif;
   font-style: italic;
   font-weight: 400;
-  font-size: 22px;
+  font-size: 26px;
   color: var(--text);
   margin: 0;
+  line-height: 1.2;
 }
 
 h2, h3, h4, h5, h6 {

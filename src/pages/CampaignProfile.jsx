@@ -249,7 +249,7 @@ function CampaignProfile() {
                         <div>
                             <span>Status</span>
                             <strong>
-                                <span className="status-pill">{campaign.status}</span>
+                                <span className={`status-pill status-pill--${campaign.status.toLowerCase()}`}>{campaign.status}</span>
                             </strong>
                         </div>
 
@@ -330,7 +330,7 @@ function CampaignProfile() {
 
                                                 <p className="muted">
                                                     Current outreach status:{' '}
-                                                    <span className="status-pill">{record.status}</span>
+                                                    <span className={`status-pill status-pill--${record.status.toLowerCase()}`}>{record.status}</span>
                                                 </p>
                                             </div>
 

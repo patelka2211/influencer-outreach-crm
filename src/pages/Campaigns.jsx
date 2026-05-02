@@ -257,44 +257,35 @@ function Campaigns() {
                 ) : filteredCampaigns.length === 0 ? (
                     <p className="muted">No campaigns match your current search or filter.</p>
                 ) : (
-                    <div className="list-rows">
+                    <div className="campaigns-grid">
                         {filteredCampaigns.map((campaign) => {
                             const startDate = formatDate(campaign.start_date)
                             const endDate = formatDate(campaign.end_date)
 
                             return (
-                                <div key={campaign.id} className="list-card">
-                                    <div className="list-card-info">
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <Link
-                                                to={`/campaigns/${campaign.id}`}
-                                                className="list-card-title"
-                                            >
-                                                {campaign.name}
-                                            </Link>
-                                            <span className="status-pill">{campaign.status}</span>
-                                        </div>
-                                        <div className="list-card-meta">
-                                            {(startDate || endDate) && (
-                                                <span>
-                                                    {startDate ?? '—'} → {endDate ?? '—'}
-                                                </span>
-                                            )}
-                                            {campaign.description && (
-                                                <span
-                                                    style={{
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis',
-                                                        whiteSpace: 'nowrap',
-                                                        maxWidth: 320,
-                                                    }}
-                                                >
-                                                    {campaign.description}
-                                                </span>
-                                            )}
-                                        </div>
+                                <div key={campaign.id} className="campaign-grid-card">
+                                    <div className="campaign-grid-card-title-row">
+                                        <Link
+                                            to={`/campaigns/${campaign.id}`}
+                                            className="list-card-title"
+                                        >
+                                            {campaign.name}
+                                        </Link>
+                                        <span className={`status-pill status-pill--${campaign.status.toLowerCase()}`}>
+                                            {campaign.status}
+                                        </span>
                                     </div>
-                                    <div className="list-card-actions">
+                                    <div className="campaign-grid-card-meta">
+                                        {(startDate || endDate) && (
+                                            <span>{startDate ?? '—'} → {endDate ?? '—'}</span>
+                                        )}
+                                        {campaign.description && (
+                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {campaign.description}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="campaign-grid-card-actions">
                                         <select
                                             className="list-card-status-select"
                                             value={campaign.status}

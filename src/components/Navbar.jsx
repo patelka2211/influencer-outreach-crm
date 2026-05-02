@@ -65,7 +65,7 @@ function Navbar() {
                         </span>
                     </div>
                 </div>
-                <button className="sidebar-logout" onClick={handleLogout}>Logout</button>
+                <button className="sidebar-logout-link" onClick={handleLogout}>Logout</button>
             </div>
         </aside>
     )

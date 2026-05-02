@@ -168,61 +168,39 @@ function AdminDashboard() {
         {adminData.users.length === 0 ? (
           <p className="muted">No users have been registered yet.</p>
         ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {adminData.users.map((user) => (
-                  <tr key={user.id}>
-                    <td>{user.name || '—'}</td>
-                    <td>{user.email}</td>
-                    <td>
-                      <span className="role-badge">
-                        {user.role === 'ADMIN' ? 'Admin' : 'Brand Manager'}
-                      </span>
-                    </td>
-                    <td>
-                      <span
-                        className={
-                          user.is_active
-                            ? 'active-status-badge'
-                            : 'inactive-status-badge'
-                        }
-                      >
-                        {user.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td>{formatDate(user.created_at)}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className={
-                          user.is_active ? 'danger-button' : 'secondary-button'
-                        }
-                        onClick={() => handleToggleActive(user)}
-                        disabled={updatingUserId === user.id}
-                      >
-                        {updatingUserId === user.id
-                          ? 'Updating...'
-                          : user.is_active
-                            ? 'Deactivate'
-                            : 'Reactivate'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="list-rows">
+            {adminData.users.map((user) => (
+              <div key={user.id} className="list-card">
+                <div className="list-card-info">
+                  <span className="list-card-title">{user.name || '—'}</span>
+                  <div className="list-card-meta">
+                    <span>{user.email}</span>
+                    <span className="role-badge">
+                      {user.role === 'ADMIN' ? 'Admin' : 'Brand Manager'}
+                    </span>
+                    <span className={user.is_active ? 'active-status-badge' : 'inactive-status-badge'}>
+                      {user.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                    <span>{formatDate(user.created_at)}</span>
+                  </div>
+                </div>
+                <div className="list-card-actions">
+                  <button type="button" className="secondary-button">
+                    Reset Password
+                  </button>
+                  <button
+                    type="button"
+                    className={user.is_active ? 'danger-button' : 'secondary-button'}
+                    onClick={() => handleToggleActive(user)}
+                    disabled={updatingUserId === user.id}
+                  >
+                    {updatingUserId === user.id
+                      ? 'Updating...'
+                      : user.is_active ? 'Deactivate' : 'Reactivate'}
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </section>
@@ -236,10 +214,10 @@ function AdminDashboard() {
         </p>
 
         <div className="pipeline-stage-preview">
-          <span className="status-pill">CONTACTED</span>
-          <span className="status-pill">REPLIED</span>
-          <span className="status-pill">SHIPPED</span>
-          <span className="status-pill">POSTED</span>
+          <span className="status-pill status-pill--contacted">CONTACTED</span>
+          <span className="status-pill status-pill--replied">REPLIED</span>
+          <span className="status-pill status-pill--shipped">SHIPPED</span>
+          <span className="status-pill status-pill--posted">POSTED</span>
         </div>
       </section>
     </div>

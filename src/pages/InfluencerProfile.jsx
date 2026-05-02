@@ -249,7 +249,7 @@ function InfluencerProfile() {
 
                                                 <p className="muted">
                                                     Current outreach status:{' '}
-                                                    <span className="status-pill">{record.status}</span>
+                                                    <span className={`status-pill status-pill--${record.status.toLowerCase()}`}>{record.status}</span>
                                                 </p>
                                             </div>
 
