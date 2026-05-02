@@ -105,8 +105,14 @@ function Campaigns() {
         }
     }
 
-    async function handleDelete(id) {
-        const confirmed = window.confirm('Are you sure you want to delete this campaign?')
+    async function handleDelete(id, status) {
+        let message = 'Are you sure you want to delete this campaign?'
+        if (status === 'ACTIVE') {
+            message = 'This campaign may have active outreach records. Are you sure you want to delete it?'
+        } else if (status === 'COMPLETED') {
+            message = 'This campaign is completed and has outreach data. Are you sure you want to delete it?'
+        }
+        const confirmed = window.confirm(message)
         if (!confirmed) return
         try {
             setError('')
@@ -132,8 +138,12 @@ function Campaigns() {
         const matchesSearch =
             campaign.name?.toLowerCase().includes(search) ||
             campaign.description?.toLowerCase().includes(search)
-        const matchesStatus =
-            statusFilter === 'ALL' || campaign.status === statusFilter
+        let matchesStatus
+        if (statusFilter === 'ALL') {
+            matchesStatus = campaign.status !== 'ARCHIVED'
+        } else {
+            matchesStatus = campaign.status === statusFilter
+        }
         return matchesSearch && matchesStatus
     })
 
@@ -224,7 +234,7 @@ function Campaigns() {
                     <div>
                         <h2>All Campaigns</h2>
                         <p className="muted">
-                            {campaigns.length} campaign{campaigns.length === 1 ? '' : 's'} in the CRM.
+                            {campaigns.filter(c => c.status !== 'ARCHIVED').length} active campaign{campaigns.filter(c => c.status !== 'ARCHIVED').length === 1 ? '' : 's'} · {campaigns.filter(c => c.status === 'ARCHIVED').length} archived
                         </p>
                     </div>
                 </div>
@@ -240,7 +250,7 @@ function Campaigns() {
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
                     >
-                        <option value="ALL">All Statuses</option>
+                        <option value="ALL">All (excl. Archived)</option>
                         <option value="DRAFT">Draft</option>
                         <option value="ACTIVE">Active</option>
                         <option value="COMPLETED">Completed</option>
@@ -326,7 +336,7 @@ function Campaigns() {
                                         <button
                                             type="button"
                                             className="danger-button"
-                                            onClick={() => handleDelete(campaign.id)}
+                                            onClick={() => handleDelete(campaign.id, campaign.status)}
                                         >
                                             Delete
                                         </button>

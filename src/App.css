@@ -1450,6 +1450,54 @@ tbody td select:focus {
   background: #e3f7f0;
 }
 
+.pipe-move-btn--posted {
+  background: #e3f7f0;
+  color: #3aab85;
+  font-weight: 700;
+  cursor: default;
+}
+
+.pipe-move-btn--posted:hover {
+  background: #e3f7f0;
+}
+
+.pipe-status-locked-text {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-section);
+  margin-left: auto;
+}
+
+.pipe-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 4px 0 2px;
+}
+
+.pipe-card-timestamp {
+  font-size: 10px;
+  color: var(--text-section);
+  font-weight: 600;
+}
+
+.pipe-card-hint {
+  font-size: 10px;
+  color: var(--text-section);
+  font-style: italic;
+}
+
+.pipe-stale-pill {
+  font-size: 10px;
+  font-weight: 700;
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: 20px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+
 .pipe-notes-section {
   display: flex;
   flex-direction: column;

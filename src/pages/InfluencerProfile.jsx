@@ -73,6 +73,12 @@ function InfluencerProfile() {
             return
         }
 
+        const selectedCampaign = campaigns.find(c => c.id === selectedCampaignId)
+        if (selectedCampaign?.status === 'COMPLETED' || selectedCampaign?.status === 'ARCHIVED') {
+            setError(`This campaign is ${selectedCampaign.status.toLowerCase()} and is not accepting new influencer assignments.`)
+            return
+        }
+
         const alreadyAssigned = outreachRecords.some(
             (record) => record.campaign_id === selectedCampaignId
         )
@@ -250,7 +256,9 @@ function InfluencerProfile() {
                                 onChange={(e) => setSelectedCampaignId(e.target.value)}
                             >
                                 <option value="">Select campaign</option>
-                                {campaigns.map((campaign) => (
+                                {campaigns
+                                    .filter(c => c.status === 'DRAFT' || c.status === 'ACTIVE')
+                                    .map((campaign) => (
                                     <option key={campaign.id} value={campaign.id}>
                                         {campaign.name} ({campaign.status})
                                     </option>

@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { VALID_TRANSITIONS } from '../constants/outreach'
 
 export async function getOutreachRecords() {
     const { data, error } = await supabase
@@ -40,15 +41,25 @@ export async function createOutreachRecord({ influencer_id, campaign_id }) {
 }
 
 export async function updateOutreachStatus(id, newStatus) {
+    const { data: current, error: fetchError } = await supabase
+        .from('outreach')
+        .select('status')
+        .eq('id', id)
+        .single()
+
+    if (fetchError) throw fetchError
+
+    if (VALID_TRANSITIONS[current.status] !== newStatus) {
+        throw new Error('Invalid transition — outreach must move through each stage in order.')
+    }
+
     const timestampUpdates = {
         REPLIED: 'replied_at',
         SHIPPED: 'shipped_at',
         POSTED: 'posted_at',
     }
 
-    const updates = {
-        status: newStatus,
-    }
+    const updates = { status: newStatus }
 
     if (timestampUpdates[newStatus]) {
         updates[timestampUpdates[newStatus]] = new Date().toISOString()

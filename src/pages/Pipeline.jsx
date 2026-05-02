@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { getInfluencers } from '../services/influencerService'
 import { getCampaigns } from '../services/campaignService'
 import { Link } from 'react-router-dom'
@@ -9,14 +9,15 @@ import {
     updateOutreachStatus,
     deleteOutreachRecord,
 } from '../services/outreachService'
+import { STATUS_ORDER, NEXT_STATUS, REPLIED_STALE_DAYS } from '../constants/outreach'
+import Toast from '../components/Toast'
 
-const STATUS_ORDER = ['CONTACTED', 'REPLIED', 'SHIPPED', 'POSTED']
 const AVATAR_VARIANTS = ['a', 'b', 'c', 'd']
 
-const NEXT_STATUS = {
-    CONTACTED: 'REPLIED',
-    REPLIED: 'SHIPPED',
-    SHIPPED: 'POSTED',
+const HINT_TEXT = {
+    CONTACTED: 'Waiting for response',
+    REPLIED: 'Add a note about the response',
+    SHIPPED: 'Awaiting post',
     POSTED: null,
 }
 
@@ -28,6 +29,29 @@ function getInitials(name) {
 function capitalize(str) {
     if (!str) return str
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
+}
+
+function formatStatusDate(dateStr, label) {
+    if (!dateStr) return null
+    return `${label} ${new Date(dateStr).toLocaleDateString(undefined, {
+        month: 'short', day: 'numeric', year: 'numeric',
+    })}`
+}
+
+function getStatusTimestamp(record) {
+    switch (record.status) {
+        case 'CONTACTED': return formatStatusDate(record.contacted_at, 'Contacted')
+        case 'REPLIED':   return formatStatusDate(record.replied_at, 'Replied')
+        case 'SHIPPED':   return formatStatusDate(record.shipped_at, 'Shipped')
+        case 'POSTED':    return formatStatusDate(record.posted_at, 'Posted')
+        default:          return null
+    }
+}
+
+function getRepliedStaleDays(record) {
+    if (record.status !== 'REPLIED' || !record.replied_at) return 0
+    const ms = Date.now() - new Date(record.replied_at).getTime()
+    return Math.floor(ms / (1000 * 60 * 60 * 24))
 }
 
 function Pipeline() {
@@ -55,6 +79,14 @@ function Pipeline() {
 
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
+
+    // Toast
+    const [toastMessage, setToastMessage] = useState('')
+
+    const showToast = useCallback((message) => {
+        setToastMessage(message)
+        setTimeout(() => setToastMessage(''), 3000)
+    }, [])
 
     async function loadPipelineData() {
         try {
@@ -141,15 +173,31 @@ function Pipeline() {
     }
 
     async function handleMoveNext(record) {
+        const campStatus = record.campaigns?.status
+
+        if (campStatus === 'DRAFT') {
+            showToast('Campaign must be Active before managing outreach.')
+            return
+        }
+        if (campStatus === 'COMPLETED' || campStatus === 'ARCHIVED') {
+            showToast(`Campaign ${campStatus.toLowerCase()} — outreach cannot be moved.`)
+            return
+        }
+
         const nextStatus = NEXT_STATUS[record.status]
         if (!nextStatus) return
+
         try {
             setError('')
             await updateOutreachStatus(record.id, nextStatus)
             await loadPipelineData()
         } catch (err) {
             console.error(err)
-            setError(err.message || 'Could not update outreach status.')
+            if (err.message?.includes('Invalid transition')) {
+                showToast(err.message)
+            } else {
+                setError(err.message || 'Could not update outreach status.')
+            }
         }
     }
 
@@ -201,12 +249,17 @@ function Pipeline() {
         })
     }
 
-    async function handleDeleteOutreach(recordId) {
+    async function handleDeleteOutreach(record) {
+        const campStatus = record.campaigns?.status
+        if (campStatus === 'COMPLETED' || campStatus === 'ARCHIVED') {
+            showToast(`Cannot remove outreach from a ${campStatus.toLowerCase()} campaign.`)
+            return
+        }
         const confirmed = window.confirm('Are you sure you want to remove this outreach record?')
         if (!confirmed) return
         try {
             setError('')
-            await deleteOutreachRecord(recordId)
+            await deleteOutreachRecord(record.id)
             await loadPipelineData()
         } catch (err) {
             console.error(err)
@@ -231,8 +284,15 @@ function Pipeline() {
         return filteredOutreachRecords.filter((r) => r.status === status)
     }
 
+    // Only DRAFT and ACTIVE campaigns are valid for new outreach
+    const assignableCampaigns = campaigns.filter(
+        c => c.status === 'DRAFT' || c.status === 'ACTIVE'
+    )
+
     return (
         <div>
+            <Toast message={toastMessage} />
+
             {/* ── Start Outreach Modal ── */}
             {outreachModalOpen && (
                 <div
@@ -269,7 +329,7 @@ function Pipeline() {
                                 required
                             >
                                 <option value="">Select campaign</option>
-                                {campaigns.map((c) => (
+                                {assignableCampaigns.map((c) => (
                                     <option key={c.id} value={c.id}>
                                         {c.name} ({c.status})
                                     </option>
@@ -408,8 +468,23 @@ function Pipeline() {
                                             const isNoteOpen = expandedNoteId === record.id
                                             const mostRecentNote = sortedNotes[0]
 
+                                            const campStatus = record.campaigns?.status
+                                            const campaignLocked = campStatus === 'COMPLETED' || campStatus === 'ARCHIVED'
+
+                                            const timestamp = getStatusTimestamp(record)
+                                            const hintText = HINT_TEXT[status]
+
+                                            const staleDays = getRepliedStaleDays(record)
+                                            const showStalePill = status === 'REPLIED' && staleDays > REPLIED_STALE_DAYS
+
+                                            const isPosted = status === 'POSTED'
+
                                             return (
-                                                <div key={record.id} className="pipeline-card">
+                                                <div
+                                                    key={record.id}
+                                                    className="pipeline-card"
+                                                    style={isPosted ? { borderLeft: '3px solid #3aab85' } : undefined}
+                                                >
                                                     {/* Avatar + name/handle + platform badge */}
                                                     <div className="pipe-card-top">
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -453,6 +528,23 @@ function Pipeline() {
                                                         </Link>
                                                     ) : (
                                                         <span className="pipeline-card-campaign">No campaign</span>
+                                                    )}
+
+                                                    {/* Timestamp + hint */}
+                                                    {(timestamp || hintText || showStalePill) && (
+                                                        <div className="pipe-card-meta">
+                                                            {timestamp && (
+                                                                <span className="pipe-card-timestamp">{timestamp}</span>
+                                                            )}
+                                                            {showStalePill && (
+                                                                <span className="pipe-stale-pill">
+                                                                    {staleDays} day{staleDays === 1 ? '' : 's'} since reply
+                                                                </span>
+                                                            )}
+                                                            {hintText && !showStalePill && (
+                                                                <span className="pipe-card-hint">{hintText}</span>
+                                                            )}
+                                                        </div>
                                                     )}
 
                                                     {/* Note previews */}
@@ -500,7 +592,19 @@ function Pipeline() {
                                                             {noteCount} note{noteCount === 1 ? '' : 's'}
                                                         </span>
                                                         <div className="pipeline-card-footer-right">
-                                                            {NEXT_STATUS[status] ? (
+                                                            {isPosted ? (
+                                                                <button
+                                                                    type="button"
+                                                                    className="pipe-move-btn pipe-move-btn--posted"
+                                                                    disabled
+                                                                >
+                                                                    Complete ✓
+                                                                </button>
+                                                            ) : campaignLocked ? (
+                                                                <span className="pipe-status-locked-text">
+                                                                    Campaign {campStatus.toLowerCase()}
+                                                                </span>
+                                                            ) : (
                                                                 <button
                                                                     type="button"
                                                                     className="pipe-move-btn"
@@ -508,23 +612,17 @@ function Pipeline() {
                                                                 >
                                                                     Move to {capitalize(NEXT_STATUS[status])}
                                                                 </button>
-                                                            ) : (
+                                                            )}
+                                                            {!campaignLocked && (
                                                                 <button
                                                                     type="button"
-                                                                    className="pipe-move-btn pipe-move-btn--done"
-                                                                    disabled
+                                                                    className="pipeline-card-remove"
+                                                                    onClick={() => handleDeleteOutreach(record)}
+                                                                    title="Remove outreach"
                                                                 >
-                                                                    Complete
+                                                                    ✕
                                                                 </button>
                                                             )}
-                                                            <button
-                                                                type="button"
-                                                                className="pipeline-card-remove"
-                                                                onClick={() => handleDeleteOutreach(record.id)}
-                                                                title="Remove outreach"
-                                                            >
-                                                                ✕
-                                                            </button>
                                                         </div>
                                                     </div>
 

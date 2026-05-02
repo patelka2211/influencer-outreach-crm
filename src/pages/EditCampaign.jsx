@@ -29,6 +29,11 @@ function EditCampaign() {
 
                 const campaign = await getCampaignById(id)
 
+                if (campaign.status === 'COMPLETED' || campaign.status === 'ARCHIVED') {
+                    navigate(`/campaigns/${id}`, { replace: true })
+                    return
+                }
+
                 setForm({
                     name: campaign.name || '',
                     description: campaign.description || '',

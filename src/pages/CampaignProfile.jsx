@@ -4,14 +4,14 @@ import {
     deleteCampaign,
     getCampaignById,
     getCampaignOutreach,
+    updateCampaignStatus,
 } from '../services/campaignService'
 import { getInfluencers } from '../services/influencerService'
 import {
     createOutreachRecord,
     deleteOutreachRecord,
 } from '../services/outreachService'
-
-const STATUS_ORDER = ['CONTACTED', 'REPLIED', 'SHIPPED', 'POSTED']
+import { STATUS_ORDER } from '../constants/outreach'
 
 function CampaignProfile() {
     const { id } = useParams()
@@ -24,6 +24,7 @@ function CampaignProfile() {
 
     const [loading, setLoading] = useState(true)
     const [assigning, setAssigning] = useState(false)
+    const [statusUpdating, setStatusUpdating] = useState(false)
     const [error, setError] = useState('')
 
     async function loadCampaignProfile() {
@@ -54,12 +55,49 @@ function CampaignProfile() {
 
     function formatDate(dateValue) {
         if (!dateValue) return '—'
-
         return new Date(dateValue).toLocaleDateString(undefined, {
             month: 'short',
             day: 'numeric',
             year: 'numeric',
         })
+    }
+
+    async function handleStatusTransition(newStatus) {
+        try {
+            setStatusUpdating(true)
+            setError('')
+            const updated = await updateCampaignStatus(id, newStatus)
+            setCampaign(updated)
+        } catch (err) {
+            console.error(err)
+            setError(err.message || 'Could not update campaign status.')
+        } finally {
+            setStatusUpdating(false)
+        }
+    }
+
+    async function handleLaunchCampaign() {
+        await handleStatusTransition('ACTIVE')
+    }
+
+    async function handleCompleteCampaign() {
+        const inProgress = outreachRecords.filter(r => r.status !== 'POSTED')
+        let message = 'Mark this campaign as completed?'
+        if (inProgress.length > 0) {
+            message = `${inProgress.length} influencer${inProgress.length === 1 ? '' : 's'} haven't reached Posted yet. Mark as completed anyway?`
+        }
+        if (!window.confirm(message)) return
+        await handleStatusTransition('COMPLETED')
+    }
+
+    async function handleArchiveCampaign() {
+        if (!window.confirm('Archive this completed campaign?')) return
+        await handleStatusTransition('ARCHIVED')
+    }
+
+    async function handleRestoreCampaign() {
+        if (!window.confirm('Restore this campaign to completed status?')) return
+        await handleStatusTransition('COMPLETED')
     }
 
     async function handleAssignInfluencer(e) {
@@ -122,10 +160,14 @@ function CampaignProfile() {
     }
 
     async function handleDeleteCampaign() {
-        const confirmed = window.confirm(
-            'Are you sure you want to delete this campaign? This may also remove related outreach records depending on your database rules.'
-        )
+        let message = 'Are you sure you want to delete this campaign? This may also remove related outreach records depending on your database rules.'
+        if (campaign?.status === 'ACTIVE') {
+            message = 'This campaign may have active outreach records. Are you sure you want to delete it?'
+        } else if (campaign?.status === 'COMPLETED') {
+            message = 'This campaign is completed and has outreach data. Are you sure you want to delete it?'
+        }
 
+        const confirmed = window.confirm(message)
         if (!confirmed) return
 
         try {
@@ -142,7 +184,6 @@ function CampaignProfile() {
         counts[status] = outreachRecords.filter(
             (record) => record.status === status
         ).length
-
         return counts
     }, {})
 
@@ -217,11 +258,14 @@ function CampaignProfile() {
             </div>
         </div>
     )
-    if (error) return <p className="error">{error}</p>
+    if (error && !campaign) return <p className="error">{error}</p>
     if (!campaign) return <p>Campaign not found.</p>
 
+    const isLocked = campaign.status === 'COMPLETED' || campaign.status === 'ARCHIVED'
+    const isArchived = campaign.status === 'ARCHIVED'
+
     return (
-        <div>
+        <div style={isArchived ? { opacity: 0.85 } : undefined}>
             <div className="page-header dashboard-header">
                 <div>
                     <Link to="/campaigns" className="back-link">
@@ -235,9 +279,55 @@ function CampaignProfile() {
                 </div>
 
                 <div className="dashboard-actions">
-                    <Link to={`/campaigns/${id}/edit`} className="primary-link-button">
-                        Edit Campaign
-                    </Link>
+                    {!isLocked && (
+                        <Link to={`/campaigns/${id}/edit`} className="primary-link-button">
+                            Edit Campaign
+                        </Link>
+                    )}
+
+                    {campaign.status === 'DRAFT' && (
+                        <button
+                            type="button"
+                            className="primary-button"
+                            onClick={handleLaunchCampaign}
+                            disabled={statusUpdating}
+                        >
+                            Launch Campaign
+                        </button>
+                    )}
+
+                    {campaign.status === 'ACTIVE' && (
+                        <button
+                            type="button"
+                            className="secondary-button"
+                            onClick={handleCompleteCampaign}
+                            disabled={statusUpdating}
+                        >
+                            Complete Campaign
+                        </button>
+                    )}
+
+                    {campaign.status === 'COMPLETED' && (
+                        <button
+                            type="button"
+                            className="secondary-button"
+                            onClick={handleArchiveCampaign}
+                            disabled={statusUpdating}
+                        >
+                            Archive Campaign
+                        </button>
+                    )}
+
+                    {campaign.status === 'ARCHIVED' && (
+                        <button
+                            type="button"
+                            className="secondary-button"
+                            onClick={handleRestoreCampaign}
+                            disabled={statusUpdating}
+                        >
+                            Restore Campaign
+                        </button>
+                    )}
 
                     <button
                         type="button"
@@ -248,6 +338,8 @@ function CampaignProfile() {
                     </button>
                 </div>
             </div>
+
+            {error && <p className="error" style={{ marginBottom: 16 }}>{error}</p>}
 
             <section className="stats-grid status-grid">
                 <div className="stat-card small-stat">
@@ -274,7 +366,7 @@ function CampaignProfile() {
             <section className="card campaign-progress-card">
                 <div className="section-header">
                     <div>
-                        <h2>Campaign Progress</h2>
+                        <h2>{isLocked ? 'Campaign Summary' : 'Campaign Progress'}</h2>
                         <p className="muted">
                             {postedCount} of {totalAssigned} assigned influencers have completed the outreach cycle.
                         </p>
@@ -335,27 +427,40 @@ function CampaignProfile() {
                 <div className="profile-main-column">
                     <section className="card assign-card">
                         <h2>Assign Influencer</h2>
-                        <p className="muted">
-                            Add an influencer to this campaign and start their outreach record.
-                        </p>
 
-                        <form onSubmit={handleAssignInfluencer} className="assign-form">
-                            <select
-                                value={selectedInfluencerId}
-                                onChange={(e) => setSelectedInfluencerId(e.target.value)}
-                            >
-                                <option value="">Select influencer</option>
-                                {influencers.map((influencer) => (
-                                    <option key={influencer.id} value={influencer.id}>
-                                        {influencer.name} ({influencer.platform})
-                                    </option>
-                                ))}
-                            </select>
+                        {campaign.status === 'COMPLETED' ? (
+                            <p className="muted">
+                                This campaign is completed and is not accepting new influencer assignments.
+                            </p>
+                        ) : campaign.status === 'ARCHIVED' ? (
+                            <p className="muted">
+                                This campaign is archived and is not accepting new influencer assignments.
+                            </p>
+                        ) : (
+                            <>
+                                <p className="muted">
+                                    Add an influencer to this campaign and start their outreach record.
+                                </p>
 
-                            <button type="submit" disabled={assigning}>
-                                {assigning ? 'Assigning...' : 'Assign Influencer'}
-                            </button>
-                        </form>
+                                <form onSubmit={handleAssignInfluencer} className="assign-form">
+                                    <select
+                                        value={selectedInfluencerId}
+                                        onChange={(e) => setSelectedInfluencerId(e.target.value)}
+                                    >
+                                        <option value="">Select influencer</option>
+                                        {influencers.map((influencer) => (
+                                            <option key={influencer.id} value={influencer.id}>
+                                                {influencer.name} ({influencer.platform})
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    <button type="submit" disabled={assigning}>
+                                        {assigning ? 'Assigning...' : 'Assign Influencer'}
+                                    </button>
+                                </form>
+                            </>
+                        )}
                     </section>
 
                     <section className="card">
@@ -396,13 +501,15 @@ function CampaignProfile() {
                                                 </p>
                                             </div>
 
-                                            <button
-                                                type="button"
-                                                className="danger-button"
-                                                onClick={() => handleRemoveInfluencer(record.id)}
-                                            >
-                                                Remove
-                                            </button>
+                                            {!isLocked && (
+                                                <button
+                                                    type="button"
+                                                    className="danger-button"
+                                                    onClick={() => handleRemoveInfluencer(record.id)}
+                                                >
+                                                    Remove
+                                                </button>
+                                            )}
                                         </div>
 
                                         {record.notes?.length > 0 ? (
