@@ -71,6 +71,53 @@
   user-select: none;
 }
 
+.sidebar-logo-img {
+  width: 100%;
+  height: auto;
+  margin-bottom: 32px;
+  user-select: none;
+  display: block;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin-bottom: 32px;
+  user-select: none;
+}
+
+.sidebar-brand-icon {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+}
+
+.sidebar-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+  padding-bottom: 8px;
+}
+
+.sidebar-brand-name {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-style: italic;
+  font-size: 26px;
+  font-weight: 400;
+  color: #ffffff;
+  letter-spacing: -0.2px;
+}
+
+.sidebar-brand-sub {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 4px;
+}
+
 .sidebar-nav {
   display: flex;
   flex-direction: column;
@@ -822,6 +869,13 @@ tbody td select:focus {
 
 .auth-card h1 {
   margin-bottom: 4px;
+}
+
+.auth-logo {
+  width: 220px;
+  height: auto;
+  display: block;
+  margin: 0 auto 24px;
 }
 
 .auth-card .muted {
@@ -1729,12 +1783,57 @@ tbody td select:focus {
   gap: 8px;
 }
 
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.pagination-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: #f7f5ff;
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: #eeebff;
+  border-color: #c4b5fd;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.pagination-btn--active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.pagination-btn--active:hover {
+  background: var(--primary);
+}
+
 .list-card {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  background: var(--surface);
+  background: #f7f5ff;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-card);
   padding: 14px 18px;
@@ -1742,7 +1841,7 @@ tbody td select:focus {
 }
 
 .list-card:hover {
-  background: #faf8ff;
+  background: #eeebff;
 }
 
 .list-card-info {
@@ -2010,7 +2109,7 @@ tbody td select:focus {
 }
 
 .campaign-grid-card {
-  background: var(--surface);
+  background: #f7f5ff;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-card);
   padding: 18px;
@@ -2018,15 +2117,25 @@ tbody td select:focus {
   flex-direction: column;
   gap: 10px;
   transition: background 0.12s;
+  min-width: 0;
+  overflow: hidden;
 }
 
-.campaign-grid-card:hover { background: #faf8ff; }
+.campaign-grid-card:hover { background: #eeebff; }
 
 .campaign-grid-card-title-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.campaign-grid-card-title-row .list-card-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .campaign-grid-card-meta {
@@ -2036,6 +2145,8 @@ tbody td select:focus {
   flex-direction: column;
   gap: 3px;
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .campaign-grid-card-actions {

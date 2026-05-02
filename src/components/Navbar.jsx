@@ -23,7 +23,13 @@ function Navbar() {
     return (
         <aside className="sidebar">
             <div className="sidebar-top">
-                <div className="sidebar-logo">Influencer CRM</div>
+                <div className="sidebar-brand">
+                    <img src="/influence_logo.png" alt="Influence CRM" className="sidebar-brand-icon" />
+                    <div className="sidebar-brand-text">
+                        <span className="sidebar-brand-name">Influence</span>
+                        <span className="sidebar-brand-sub">CRM</span>
+                    </div>
+                </div>
 
                 <nav className="sidebar-nav">
                     {profile.role === 'BRAND_MANAGER' && (

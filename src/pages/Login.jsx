@@ -80,7 +80,7 @@ function Login() {
     return (
         <div className="auth-page">
             <div className="auth-card">
-                <h1>Influencer Outreach CRM</h1>
+                <img src="/Influencer_crm_logo.png" alt="Influence CRM" className="auth-logo" />
                 <p className="muted">
                     {mode === 'login'
                         ? 'Log in to manage campaigns and influencer outreach.'

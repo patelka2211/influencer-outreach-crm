@@ -21,6 +21,8 @@ function Influencers() {
 
     const [searchTerm, setSearchTerm] = useState('')
     const [platformFilter, setPlatformFilter] = useState('ALL')
+    const [currentPage, setCurrentPage] = useState(1)
+    const PAGE_SIZE = 10
 
     const [form, setForm] = useState({
         name: '',
@@ -137,6 +139,27 @@ function Influencers() {
             platformFilter === 'ALL' || influencer.platform === platformFilter
         return matchesSearch && matchesPlatform
     })
+
+    const totalPages = Math.ceil(filteredInfluencers.length / PAGE_SIZE)
+    const paginatedInfluencers = filteredInfluencers.slice(
+        (currentPage - 1) * PAGE_SIZE,
+        currentPage * PAGE_SIZE
+    )
+
+    function handlePageChange(page) {
+        setCurrentPage(page)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+
+    function handleSearchChange(e) {
+        setSearchTerm(e.target.value)
+        setCurrentPage(1)
+    }
+
+    function handlePlatformChange(e) {
+        setPlatformFilter(e.target.value)
+        setCurrentPage(1)
+    }
 
     function exportInfluencersCSV() {
         if (filteredInfluencers.length === 0) {
@@ -311,6 +334,7 @@ function Influencers() {
                         <h2>All Influencers</h2>
                         <p className="muted">
                             {filteredInfluencers.length} shown out of {influencers.length} total influencer{influencers.length === 1 ? '' : 's'} in the CRM.
+                            {totalPages > 1 && ` · Page ${currentPage} of ${totalPages}`}
                         </p>
                     </div>
 
@@ -328,12 +352,12 @@ function Influencers() {
                     <input
                         type="text"
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={handleSearchChange}
                         placeholder="Search by name, handle, niche, or email..."
                     />
                     <select
                         value={platformFilter}
-                        onChange={(e) => setPlatformFilter(e.target.value)}
+                        onChange={handlePlatformChange}
                     >
                         <option value="ALL">All Platforms</option>
                         <option value="INSTAGRAM">Instagram</option>
@@ -372,7 +396,7 @@ function Influencers() {
                     <p className="muted">No influencers match your current search or filter.</p>
                 ) : (
                     <div className="list-rows">
-                        {filteredInfluencers.map((influencer) => (
+                        {paginatedInfluencers.map((influencer) => (
                             <div key={influencer.id} className="list-card">
                                 <div className="list-card-info">
                                     <Link
@@ -411,6 +435,34 @@ function Influencers() {
                                 </div>
                             </div>
                         ))}
+                    </div>
+                )}
+
+                {totalPages > 1 && (
+                    <div className="pagination">
+                        <button
+                            className="pagination-btn"
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                        >
+                            ← Prev
+                        </button>
+                        {[...Array(totalPages)].map((_, i) => (
+                            <button
+                                key={i + 1}
+                                className={`pagination-btn${currentPage === i + 1 ? ' pagination-btn--active' : ''}`}
+                                onClick={() => handlePageChange(i + 1)}
+                            >
+                                {i + 1}
+                            </button>
+                        ))}
+                        <button
+                            className="pagination-btn"
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                        >
+                            Next →
+                        </button>
                     </div>
                 )}
             </section>
